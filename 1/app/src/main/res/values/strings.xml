@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Fibonacci</string>
+    <string name="first_to_numbers_of_Fibonacci">0,1</string>
+    <string name="action_of_button">CALCULAR</string>
+    <string name="Description_of_image_1">Photo of Fibonacci</string>
 </resources>
