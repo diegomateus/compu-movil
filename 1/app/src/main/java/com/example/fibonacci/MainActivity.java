@@ -2,18 +2,19 @@ package com.example.fibonacci;
 
 import androidx.appcompat.app.AppCompatActivity;
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import java.util.ArrayList;
+import android.widget.EditText;
+
 
 public class MainActivity extends AppCompatActivity {
 
+    EditText editText;
     Button button;
-    LinearLayout linearLayout;
-    ArrayList<Long> numbers;
+    String peticion;
+    int count;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,29 +22,19 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         button = findViewById(R.id.button);
-        linearLayout = findViewById(R.id.linearLayout);
-        numbers = new ArrayList<>();
-        numbers.add(Long.parseLong("0"));
-        numbers.add(Long.parseLong("1"));
+        editText = findViewById(R.id.edit_text);
 
         button.setOnClickListener(new View.OnClickListener() {
             @SuppressLint("SetTextI18n")
             @Override
             public void onClick(View view) {
 
-                TextView newText;
-                newText = new TextView(view.getContext());
-
-                long numberOne = numbers.get(numbers.size() - 1);
-                long numberTwo = numbers.get(numbers.size() - 2);
-                long answer = numberOne + numberTwo;
-
-                String respuesta = String.valueOf(answer);
-
-                newText.setText(respuesta);
-                linearLayout.addView(newText);
-
-                numbers.add(answer);
+                editText = findViewById(R.id.edit_text);
+                peticion = editText.getText().toString();
+                count = Integer.parseInt(peticion);
+                Intent intent = new Intent(view.getContext(),Main2Activity.class);
+                intent.putExtra("value",count);
+                startActivity(intent);
 
             }
         });
