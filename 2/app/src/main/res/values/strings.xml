@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Fibonacci2.0</string>
+    <string-array name="numbers">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+    </string-array>
+    <string name="description_fibonacci_image">This is a ilustration of Fibonacci</string>
+    <string name="text_of_the_button_of_factorial"> CALCULAR </string>
+    <string name="description_of_factorial_image">This is how you can calculate the factorial of a number</string>
+    <string name="fibonacci">Fibonacci: </string>
+    <string name="factorial">Factorial: </string>
+    <string name="button_countries"> PAISES </string>
+</resources>
