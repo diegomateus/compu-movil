@@ -66,7 +66,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onCreate(savedInstanceState);
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
-        mAddress = findViewById(R.id.texto);
         setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
@@ -89,8 +88,37 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             public void onAccuracyChanged(Sensor sensor, int accuracy) {}
         };
 
+        mAddress = findViewById(R.id.texto);
 
-
+        mAddress.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_SEARCH){
+                    String addressString = mAddress.getText().toString();
+                    if (!addressString.isEmpty()) {
+                        try {
+                            Geocoder mGeocoder = new Geocoder(getBaseContext());
+                            List<Address> addresses = mGeocoder.getFromLocationName(addressString, 2);
+                            if (addresses != null && !addresses.isEmpty()) {
+                                Address addressResult = addresses.get(0);
+                                LatLng position = new LatLng(addressResult.getLatitude(), addressResult.getLongitude());
+                                if (mMap != null) {
+                                    MarkerOptions myMarkerOptions = new MarkerOptions();
+                                    myMarkerOptions.position(position);
+                                    myMarkerOptions.title("Dirección Encontrada");
+                                    myMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
+                                    mMap.addMarker(myMarkerOptions);
+                                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 15));
+                                }
+                            } else {Toast.makeText(MapsActivity.this, "Dirección no encontrada", Toast.LENGTH_SHORT).show();}
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {Toast.makeText(MapsActivity.this, "La dirección esta vacía", Toast.LENGTH_SHORT).show();}
+                }
+                return false;
+            }
+        });
     }
 
     @Override
@@ -168,35 +196,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         });
 
-        mAddress.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEARCH){
-                    String addressString = mAddress.getText().toString();
-                    if (!addressString.isEmpty()) {
-                        try {
-                            Geocoder mGeocoder = new Geocoder(getBaseContext());
-                            List<Address> addresses = mGeocoder.getFromLocationName(addressString, 2);
-                            if (addresses != null && !addresses.isEmpty()) {
-                                Address addressResult = addresses.get(0);
-                                LatLng position = new LatLng(addressResult.getLatitude(), addressResult.getLongitude());
-                                if (mMap != null) {
-                                    MarkerOptions myMarkerOptions = new MarkerOptions();
-                                    myMarkerOptions.position(position);
-                                    myMarkerOptions.title("Dirección Encontrada");
-                                    myMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
-                                    mMap.addMarker(myMarkerOptions);
-                                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 15));
-                                }
-                            } else {Toast.makeText(MapsActivity.this, "Dirección no encontrada", Toast.LENGTH_SHORT).show();}
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    } else {Toast.makeText(MapsActivity.this, "La dirección esta vacía", Toast.LENGTH_SHORT).show();}
-                }
-                return false;
-            }
-        });
     }
 
     private void requestPermission(Activity context, String permiso, String justificacion, int idCode) {
