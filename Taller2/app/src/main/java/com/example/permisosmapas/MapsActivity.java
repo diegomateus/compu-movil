@@ -109,6 +109,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                     myMarkerOptions.icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE));
                                     mMap.addMarker(myMarkerOptions);
                                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 15));
+                                    distance(addressResult.getLatitude(),addressResult.getLongitude(),latitud,longitud);
                                 }
                             } else {Toast.makeText(MapsActivity.this, "Dirección no encontrada", Toast.LENGTH_SHORT).show();}
                         } catch (IOException e) {
