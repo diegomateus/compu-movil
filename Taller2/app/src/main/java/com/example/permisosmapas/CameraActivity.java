@@ -48,7 +48,8 @@ public class CameraActivity extends AppCompatActivity {
             public void onClick(View v) {
                 if (ContextCompat.checkSelfPermission(v.getContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     takePhoto();
-                } else {
+                }
+                else {
                     requestPermission(CameraActivity.this, Manifest.permission.CAMERA, "Acceso a cámara necesario", PERMISSION_CAMERA_ID);
                 }
             }

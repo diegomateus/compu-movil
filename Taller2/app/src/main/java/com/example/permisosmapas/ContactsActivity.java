@@ -61,7 +61,7 @@ public class ContactsActivity extends AppCompatActivity {
     }
 
     public void initView(){
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)== PackageManager.PERMISSION_GRANTED){
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED){
             mCursor = getContentResolver().query(ContactsContract.Contacts.CONTENT_URI, mProjection, null, null, null);
             mContactsAdapter.changeCursor(mCursor);
         }

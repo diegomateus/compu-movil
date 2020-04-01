@@ -2,7 +2,10 @@ package com.example.permisosmapas;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
+import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -21,6 +24,13 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -28,14 +38,25 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.JointType;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
-import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.List;
+
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
@@ -44,7 +65,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final double upperRightLatitude= 11.983639;
     private static final double upperRigthLongitude= -71.869905;
     private static final double RADIUS_OF_EARTH_KM = 6371;
-    private static  final int PERMISSION_LOCATION_ID = 1;
+    private static final int PERMISSION_LOCATION_ID = 1;
+    private static final int REQUEST_CHECK_SETTINGS = 2;
 
     private GoogleMap mMap;
     private FusedLocationProviderClient mFusedLocationClient;
@@ -60,8 +82,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     LatLng dis3;
     double latitud;
     double longitud;
+    private Polyline mLine;
 
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
@@ -70,15 +92,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this); // Esto llama al metodo onMapReady
-        lightSensorListener= new SensorEventListener()  {
+
+        opcionesSensorLuz();
+
+        mAddress = findViewById(R.id.texto);
+
+        buscarPorTexto();
+
+    }
+
+    public void opcionesSensorLuz(){
+        lightSensorListener = new SensorEventListener()  {
             @Override
             public void onSensorChanged(SensorEvent event) {
                 if (mMap != null) {
                     if (event.values[0] < 20000) {
-                        Log.i("MAPS", "DARK MAP " + event.values[0]);
+                     //   Log.i("MAPS", "DARK MAP " + event.values[0]);
                         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(MapsActivity.this, R.raw.styledark));
                     } else {
-                        Log.i("MAPS", "LIGHT MAP " + event.values[0]);
+                       // Log.i("MAPS", "LIGHT MAP " + event.values[0]);
                         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(MapsActivity.this, R.raw.stylelight));
                     }
                 }
@@ -87,8 +119,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onAccuracyChanged(Sensor sensor, int accuracy) {}
         };
+    }
 
-        mAddress = findViewById(R.id.texto);
+    public void buscarPorTexto(){
 
         mAddress.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
@@ -98,7 +131,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if (!addressString.isEmpty()) {
                         try {
                             Geocoder mGeocoder = new Geocoder(getBaseContext());
-                            List<Address> addresses = mGeocoder.getFromLocationName(addressString, 2);
+                            List<Address> addresses = mGeocoder.getFromLocationName( addressString, 2,
+                                    lowerLeftLatitude, lowerLeftLongitude,
+                                    upperRightLatitude, upperRigthLongitude);
                             if (addresses != null && !addresses.isEmpty()) {
                                 Address addressResult = addresses.get(0);
                                 LatLng position = new LatLng(addressResult.getLatitude(), addressResult.getLongitude());
@@ -110,6 +145,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                     mMap.addMarker(myMarkerOptions);
                                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(position, 15));
                                     distance(addressResult.getLatitude(),addressResult.getLongitude(),latitud,longitud);
+                                    consumeRESTVolley(addressResult);
                                 }
                             } else {Toast.makeText(MapsActivity.this, "Dirección no encontrada", Toast.LENGTH_SHORT).show();}
                         } catch (IOException e) {
@@ -122,7 +158,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         //--------------estos no se si estan bien aqui-------------------------------------------
@@ -133,34 +168,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.getUiSettings().setZoomControlsEnabled(true);
         //mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.stylelight));
         //----------------------------------------------------------------------------------------
-
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-        //Pregunta si el servicio de la ubicacion esta aceptado
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            //Si el permiso estaba aceptado pide la localizacion del usuario
-            this.mFusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                @Override
-                public void onSuccess(Location location) {
-                    if(location != null){
-                        //si existe la localizacion agrega un marcador nuevo
-                        longitud = location.getLongitude();
-                        latitud = location.getLatitude();
-                        dis1 = new LatLng(latitud,longitud);
-
-                        myMarker2 = mMap.addMarker(new MarkerOptions()
-                                .position(dis1)
-                                .title("Marcador pocision actual")
-                                .snippet("aca se encuentra actualmente") //Texto de información
-                                .alpha(0.5f)
-                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(dis1));
-                        mMap.moveCamera(CameraUpdateFactory.zoomTo(15));
-                        //mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.style_json));
-                    }
-                }
-            });
-
+            localizacion();
         } else {
             //si el permiso no esta aceptado, lo pide!!!
             requestPermission(this, Manifest.permission.ACCESS_FINE_LOCATION, "Acceso a la localizacion necesario", PERMISSION_LOCATION_ID);
@@ -184,10 +194,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 .snippet(direccion));
                         dis2 = latLng;
                         distance(latitude,longitude,latitud,longitud);
+                        consumeRESTVolley(addresses.get(0));
+
                     } else {
                         // Marker already exists, just update it's position
                         myMarker.setPosition(latLng);
                         distance(latitude,longitude,latitud,longitud);
+                        consumeRESTVolley(addresses.get(0));
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -199,8 +212,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
-    private void requestPermission(Activity context, String permiso, String justificacion, int idCode) {
+    protected void onResume() {
+        super.onResume();
+        sensorManager.registerListener(lightSensorListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
 
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(lightSensorListener);
+    }
+
+    private void requestPermission(Activity context, String permiso, String justificacion, int idCode) {
         //Aca pide el permiso
         if (ContextCompat.checkSelfPermission(context, permiso) != PackageManager.PERMISSION_GRANTED) {
             if (ActivityCompat.shouldShowRequestPermissionRationale(context, permiso)) {
@@ -215,31 +237,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             //si acepta el permiso mira cual fue
             case PERMISSION_LOCATION_ID: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    //hace lo mismo como si ya estuviera aceptado
-                    this.mFusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-                            if(location != null){
-                                //si existe la localizacion agrega un marcador nuevo
-                                longitud = location.getLongitude();
-                                latitud = location.getLatitude();
-                                dis1 = new LatLng(latitud,longitud);
-
-                                myMarker2 = mMap.addMarker(new MarkerOptions()
-                                        .position(dis1)
-                                        .title("Marcador pocision actual")
-                                        .snippet("aca se encuentra actualmente") //Texto de información
-                                        .alpha(0.5f)
-                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
-                                mMap.moveCamera(CameraUpdateFactory.newLatLng(dis1));
-                                mMap.moveCamera(CameraUpdateFactory.zoomTo(15));
-                                //mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.style_json));
-                            }
-                        }
-                    });
+                    localizacion();
                 }
             }
         }
+    }
+
+    private void localizacion(){
+        this.mFusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if (location != null) {
+                    longitud = location.getLongitude();
+                    latitud = location.getLatitude();
+                    dis1 = new LatLng(latitud, longitud);
+
+                    myMarker2 = mMap.addMarker(new MarkerOptions()
+                            .position(dis1)
+                            .title("Marcador pocision actual")
+                            .snippet("aca se encuentra actualmente") //Texto de información
+                            .alpha(0.5f)
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+                    mMap.moveCamera(CameraUpdateFactory.newLatLng(dis1));
+                    mMap.moveCamera(CameraUpdateFactory.zoomTo(15));
+                }
+            }
+        });
     }
 
     public void distance(double lat1, double long1, double lat2, double long2) {
@@ -248,17 +271,73 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(lngDistance / 2) * Math.sin(lngDistance / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         double result = RADIUS_OF_EARTH_KM * c;
-        Toast.makeText(MapsActivity.this, "La dirección esta a " + Math.round(result*100.0)/100.0 + " Km de su ubicacion", Toast.LENGTH_SHORT).show();
-    }
-    @Override
-    protected void onResume() {
-        super.onResume();
-        sensorManager.registerListener(lightSensorListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
-    }
-    @Override
-    protected void onPause() {
-        super.onPause();
-        sensorManager.unregisterListener(lightSensorListener);
+        Toast.makeText(MapsActivity.this, "La dirección esta a " + Math.round(result*100.0)/100.0 + " Km de su ubicacion", Toast.LENGTH_LONG).show();
     }
 
+    public void consumeRESTVolley(Address addressResult){
+        RequestQueue queue = Volley.newRequestQueue(this);
+        String url = "https://maps.googleapis.com/maps/api/directions/json?";
+        String origin = "origin="+latitud+","+longitud;
+        String destination = "destination="+addressResult.getLatitude()+","+addressResult.getLongitude();
+        String mode = "mode=walking";
+        String key = "key="+getResources().getString(R.string.direcciones_llave);
+        StringRequest req = new StringRequest(Request.Method.GET, url+origin+"&"+destination+"&"+mode+"&"+key,
+                new Response.Listener() {
+                    @Override
+                    public void onResponse(Object response) {
+                        String data = (String)response;
+                        parseJSON(data);
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Log.i("TAG", "Error handling rest invocation"+error.getCause());
+                    } }
+        );
+        queue.add(req);
+    }
+
+    private void parseJSON(String data) {
+        ArrayList<LatLng> result = new ArrayList<>();
+        String distance="";
+        Double d;
+
+        try {
+            JSONObject jsonObject = new JSONObject(data);
+            JSONArray steps = jsonObject.getJSONArray("routes");
+            steps = steps.getJSONObject(0).getJSONArray("legs");
+            d = steps.getJSONObject(0).getJSONObject("distance").getDouble("value");
+            steps = steps.getJSONObject(0).getJSONArray("steps");
+
+            result.add(new LatLng(((JSONObject)((JSONObject)steps.get(0)).get("start_location")).getDouble("lat"), ((JSONObject)((JSONObject)steps.get(0)).get("start_location")).getDouble("lng")));
+            for(int i=0;i<steps.length();++i) {
+                JSONObject punto = steps.getJSONObject(i);
+                result.add(new LatLng(((JSONObject)punto.get("end_location")).getDouble("lat"), ((JSONObject)punto.get("end_location")).getDouble("lng")));
+                Log.i("LATLNG", result.get(i).toString());
+            }
+
+            distance = "La distancia es: " + d/1000.0 + " Km a su objetivo";
+            //mMap.moveCamera(CameraUpdateFactory.zoomTo(11));
+
+            Toast.makeText(getApplicationContext(),  distance ,Toast.LENGTH_LONG).show();
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        drawRoute(result);
+    }
+
+    private void drawRoute(ArrayList<LatLng> result) {
+        if(mLine!=null)
+            mLine.remove();
+        PolylineOptions line = new PolylineOptions();
+        line.addAll(result);
+        line.width(10);
+        line.color(Color.RED);
+        line.jointType(JointType.ROUND);
+        mLine = mMap.addPolyline(line);
+        CameraUpdateFactory.zoomBy(0.5f);
+    }
 }
+
+
